@@ -13,11 +13,12 @@ fig_size[1] = 6
 plt.rcParams["figure.figsize"] = fig_size
 
 t= Table.read('solar_twins_data.fits') #fits file as table 
+
 def find_stellar_abundances(star):
     for i, txt in enumerate(t['star_name']):
         if txt == star:
             tbl = t[i] #inputted star's row
-            tbl
+    tbl
 
     star_elements =[]
     elnames = tbl.columns[3:64]
@@ -111,30 +112,30 @@ def jackknifemb(_tp,_ab,_er):
         h=h+1 
         
     return jackm, jackb
+
 def stellar_abundance_plot(star): 
     for i, txt in enumerate(t['star_name']):
         if txt == star:
-            tbl = t[i] #inputted star's row
-            tbl
+            tbl = t[i] #inputted star's row                                                                                                                                                                
 
     star_elements =[]
     elnames = tbl.columns[3:64]
     for n in elnames:
         if len(n) < 3 :
             star_elements.append(n)
-            star_elements #list of elements in that star
-            
+            star_elements #list of elements in that star                                                                                                                                                    
+
     star_abundance = []
     for n in star_elements:
         star_abundance.append(tbl[n])
-        star_abundance #list of element abundances
-        
+        star_abundance #list of element abundances                                                                                                                                                          
+
     star_con_temp = []
     for n in star_elements:
         star_con_temp.append(tc_map[n])
-        star_con_temp #condensation temperatures for stellar elements
+        star_con_temp #condensation temperatures for stellar elements                                                                                                                                       
     new=np.array(star_con_temp)
-    
+
     star_error_elements = []
     for r in elnames:
         if len(r) > 3 :
@@ -143,47 +144,47 @@ def stellar_abundance_plot(star):
     el_error = []
     for k in star_error_elements:
         el_error.append(tbl[k])
-        el_error #list of error values for elements
-    
+        el_error #list of error values for elements 
+        
     for x, txt in enumerate(star_abundance):
         if (math.isnan(txt) == True):
             del star_elements[x]
             del star_abundance[x]
             del star_con_temp[x]
             del el_error[x]
-    
+
     star_table = Table([star_elements, star_abundance, el_error, star_con_temp], names=('Element', 'Abundance',
         'Abundance Error','Condensation Temp'))
-        
-    plt.scatter(star_con_temp, star_abundance)
-    plt.xlabel('Tc',fontsize='xx-large', family='sans-serif')
-    plt.ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
-    plt.title('Temperature vs Element Abundance for {0}'.format(star), fontsize= 'xx-large', family='sans-serif')
 
-    #point labels
+    plt.ioff()
+    fig, ax = plt.subplots()
+    
+    ax.scatter(star_con_temp, star_abundance)
+    ax.set_xlabel('Tc',fontsize='xx-large', family='sans-serif')
+    ax.set_ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
+    ax.set_title('Temperature vs Element Abundance for {0}'.format(star), fontsize= 'xx-large', family='sans-serif')
+
+    #point labels                                                                                                                                                                                           
     for i, txt in enumerate(star_elements):
-            plt.annotate(txt, xy=(star_con_temp[i], star_abundance[i]), xytext=(-13,-6), 
+            ax.annotate(txt, xy=(star_con_temp[i], star_abundance[i]), xytext=(-13,-6),
                 textcoords='offset points', ha='center', va='bottom')
-            
+
     jk= jackknifemb(star_con_temp, star_abundance, el_error)
     for i, txt in enumerate (jk[0]):
-        plt.scatter(star_con_temp, star_abundance)
-        plt.xlabel('Tc',fontsize='xx-large', family='sans-serif')
-        plt.ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
-        plt.title('Temperature vs Element Abundance', fontsize= 'xx-large', family='sans-serif')
-
         plot_xs = np.arange(0, 1750, .1)
-        plt.plot(plot_xs, jk[0][i] * plot_xs + (jk[1][i]), color = 'lightgray', linewidth=0.1)
-    
-    #error bars
-    plt.errorbar(star_con_temp, star_abundance, yerr= el_error, fmt='o', color='black',
+        ax.plot(plot_xs, jk[0][i] * plot_xs + (jk[1][i]), color = 'lightgray', linewidth=0.1)
+
+    #error bars                                                                                                                                                                                             
+    ax.errorbar(star_con_temp, star_abundance, yerr= el_error, fmt='o', color='black',
                  ecolor='lightsteelblue', elinewidth=3,capsize=0)
-    
-    #line of best fit m,b values
+
+    #line of best fit m,b values                                                                                                                                                                            
     mb = find_m_b(star_con_temp, star_abundance, el_error)    
     plot_xs = np.arange(0, 1750, .1)
-    plt.plot(plot_xs, (mb[0]) * plot_xs + (mb[1]), color='teal') 
-    plt.savefig(star+'.png')
+    ax.plot(plot_xs, (mb[0]) * plot_xs + (mb[1]), color='teal') 
+
+    fig.savefig(star+'.png')
+    plt.close(fig) 
 
 #chi squared :  [Y - AX]^T C^-1 [Y - AX]
 def chisquared(param, x, y, erro): 
@@ -334,21 +335,115 @@ def error_star_table(tp, ab, er):
                                               'linear algebra uncertainty'))
     return tab
 
+def abudiff(star):
+    for i, txt in enumerate(t['star_name']):
+        if txt == star:
+            tbl = t[i] #inputted star's row                                                                                                                                                                
+
+    star_elements =[]
+    elnames = tbl.columns[3:64]
+    for n in elnames:
+        if len(n) < 3 :
+            star_elements.append(n)
+            star_elements #list of elements in that star
+                                                                                           
+    star_abundance = []
+    for n in star_elements:
+        star_abundance.append(tbl[n])
+        star_abundance #list of element abundances 
+
+    star_con_temp = []
+    for n in star_elements:
+        star_con_temp.append(tc_map[n])
+        star_con_temp #condensation temperatures for stellar elements                                                                                                                                                                                                             
+    new=np.array(star_con_temp)
+
+    star_error_elements = []
+    for r in elnames:
+        if len(r) > 3 :
+            star_error_elements.append(r)
+
+    el_error = []
+    for k in star_error_elements:
+        el_error.append(tbl[k])
+        el_error #list of error values for elements                                                                                                                                                         
+
+    for x, txt in enumerate(star_abundance):
+        if (math.isnan(txt) == True):
+            del star_elements[x]
+            del star_abundance[x]
+            del star_con_temp[x]
+            del el_error[x]
+    
+    mborig = find_m_b(star_con_temp, star_abundance, el_error)
+    m = float(mborig[0])
+    b = float(mborig[1])
+
+    predicted_values = []
+    pv = 0 
+    for u in star_con_temp: 
+        pv = (m*u) + b
+        predicted_values.append(pv)
+        pv = 0
+
+    prev = np.array(predicted_values)
+    abu = np.array(star_abundance)
+    diff = prev - abu
+    
+    plt.ioff()
+    fig, ax = plt.subplots()
+
+    ax.scatter(star_con_temp, diff)
+    ax.set_xlabel('Tc',fontsize='xx-large', family='sans-serif')
+    ax.set_ylabel('Tc-Corrected Abundance', fontsize='xx-large', family='sans-serif')
+    ax.set_title('Temperature vs Abundance for {0}'.format(star), fontsize= 'xx-large', family='sans-serif')
+
+    #point labels
+    for i, txt in enumerate(star_elements):
+            ax.annotate(txt, xy=(star_con_temp[i], diff[i]), xytext=(-13,-6),
+                textcoords='offset points', ha='center', va='bottom')
+
+    jk= jackknifemb(star_con_temp, diff, el_error)
+    for i, txt in enumerate (jk[0]):
+        plot_xs = np.arange(0, 1750, .1)
+        ax.plot(plot_xs, jk[0][i] * plot_xs + (jk[1][i]), color = 'lightgray', linewidth=0.1)
+
+    #error bars                                                                                                                                                                                                                                                                    
+    ax.errorbar(star_con_temp, diff, yerr= el_error, fmt='o', color='black',
+                 ecolor='lightsteelblue', elinewidth=3,capsize=0)
+
+    #line of best fit m,b values                                                                                                                                                                                                                                                                                                                                                      
+    mb = find_m_b(star_con_temp, diff, el_error)
+    plot_xs = np.arange(0, 1750, .1)
+    ax.plot(plot_xs, (mb[0]) * plot_xs + (mb[1]), color='teal')
+
+    fig.savefig('tcremoved'+ star + '.png')
+    plt.close(fig)
 
 if __name__ == "__main__":
     mbvalues = []
-    jackknifevalues = []
-    x0 = [9e-5,.1]
-    chivalues = []
+    starrow = []
+    x0 = [0,.1]
 
     for i, txt in enumerate(t['star_name']):
         tabl = find_stellar_abundances(txt)
-    
+
         temperature= tabl.columns[3]
         elementab = tabl.columns[1]
         aberrors =tabl.columns[2]
+
+    #mbvalues is an array (slope, intercept, standard deviation of slope & intercept, standard slope error, intercept error, chi squared)
+        starrow.append(find_m_b(temperature,elementab, aberrors))
+        jack = jackknifemb(np.array(temperature),np.array(elementab),np.array(aberrors))
+        standarddev = (statistics.stdev(jack[0]),statistics.stdev(jack[1]))
+        starrow.append(standarddev)
+        errors = (standardslopeerror(temperature,elementab,aberrors), standardintercepterror(temperature,elementab,aberrors))
+        starrow.append(errors)
+        starrow.append(chisquared(x0, temperature, elementab, aberrors))
     
-        mbvalues.append(find_m_b(temperature,elementab, aberrors))
-        jackknifevalues.append(jackknifemb(np.array(temperature),np.array( elementab),np.array( aberrors)))
-        chivalues.append(chisquared(x0, temperature, elementab, aberrors))
-        tableoferror = (error_star_table(temperature, elementab, aberrors))
+        mbvalues.append(starrow)
+        starrow =[]
+    
+        plt.figure()
+        stellar_abundance_plot(txt)
+        #abudiff(txt)

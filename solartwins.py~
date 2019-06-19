@@ -15,11 +15,10 @@ plt.rcParams["figure.figsize"] = fig_size
 t= Table.read('solar_twins_data.fits') #fits file as table 
 
 def find_stellar_abundances(star):
-    t = Table.read('solar_twins_data.fits') #fits file as table 
     for i, txt in enumerate(t['star_name']):
         if txt == star:
             tbl = t[i] #inputted star's row
-            tbl
+    tbl
 
     star_elements =[]
     elnames = tbl.columns[3:64]
@@ -47,19 +46,21 @@ def find_stellar_abundances(star):
     for k in star_error_elements:
         el_error.append(tbl[k])
         el_error #list of error values for elements
-
+        
+    for x, txt in enumerate(star_abundance):
+        if (math.isnan(txt) == True):
+            del star_elements[x]
+            del star_abundance[x]
+            del star_con_temp[x]
+            del el_error[x]
+    
     star_table = Table([star_elements, star_abundance, el_error, star_con_temp], names=('Element', 'Abundance',
         'Abundance Error','Condensation Temp')) #table of temperature vs abundance for elements 
     return star_table
 
 #function for returning the best slope and intercept using linear algebra
 #[m b] = [A^T C^-1 A]^-1 [A^T C^-1 Y]
-def find_m_b(x,y,err):
-    safe = np.isfinite(y)
-    x = x[safe]
-    y = y[safe]
-    err = err[safe]
-    
+def find_m_b(x,y,err): 
     errorsq = np.square(err)
     C = np.diag(errorsq)
     xb = ([1] * len(x))
@@ -79,7 +80,7 @@ def find_m_b(x,y,err):
         
     m_= float(cov[0])
     b_= float(cov[1])
-    return m_,b_  
+    return m_,b_ 
 
 #jackknife method for determining other possible values of m and b 
 def jackknifemb(_tp,_ab,_er):
@@ -93,7 +94,7 @@ def jackknifemb(_tp,_ab,_er):
     
     #leaving out one point from data set and calculating m, b for each instance
     while h<N:
-        w = random.randint(0, 29)
+        w = random.randint(0, (len(_tp)-1))
         del l[w]
         del k[w]
         del s[w] #removing one data set from lists 
@@ -111,9 +112,7 @@ def jackknifemb(_tp,_ab,_er):
         h=h+1 
         
     return jackm, jackb
-
 def stellar_abundance_plot(star): 
-    t= Table.read('solar_twins_data.fits') #fits file as table 
     for i, txt in enumerate(t['star_name']):
         if txt == star:
             tbl = t[i] #inputted star's row
@@ -125,7 +124,7 @@ def stellar_abundance_plot(star):
         if len(n) < 3 :
             star_elements.append(n)
             star_elements #list of elements in that star
-    
+            
     star_abundance = []
     for n in star_elements:
         star_abundance.append(tbl[n])
@@ -147,9 +146,16 @@ def stellar_abundance_plot(star):
         el_error.append(tbl[k])
         el_error #list of error values for elements
     
+    for x, txt in enumerate(star_abundance):
+        if (math.isnan(txt) == True):
+            del star_elements[x]
+            del star_abundance[x]
+            del star_con_temp[x]
+            del el_error[x]
+    
     star_table = Table([star_elements, star_abundance, el_error, star_con_temp], names=('Element', 'Abundance',
         'Abundance Error','Condensation Temp'))
-
+        
     plt.scatter(star_con_temp, star_abundance)
     plt.xlabel('Tc',fontsize='xx-large', family='sans-serif')
     plt.ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
@@ -167,7 +173,6 @@ def stellar_abundance_plot(star):
         plt.ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
         plt.title('Temperature vs Element Abundance', fontsize= 'xx-large', family='sans-serif')
 
-        temparray=np.array(star_con_temp)
         plot_xs = np.arange(0, 1750, .1)
         plt.plot(plot_xs, jk[0][i] * plot_xs + (jk[1][i]), color = 'lightgray', linewidth=0.1)
     
@@ -176,14 +181,20 @@ def stellar_abundance_plot(star):
                  ecolor='lightsteelblue', elinewidth=3,capsize=0)
     
     #line of best fit m,b values
-
     mb = find_m_b(star_con_temp, star_abundance, el_error)    
-    plot_xs = np.arange(1750)
+    plot_xs = np.arange(0, 1750, .1)
     plt.plot(plot_xs, (mb[0]) * plot_xs + (mb[1]), color='teal') 
     plt.savefig(star+'.png')
+    plt.close() 
 
 #chi squared :  [Y - AX]^T C^-1 [Y - AX]
 def chisquared(param, x, y, erro): 
+    for h, txt in enumerate(y):
+        if (math.isnan(txt) == True):
+            del x[h]
+            del y[h]
+            del erro[h]
+            
     ab = ([1] * len(x))
     Amat = []
     for z, txt in enumerate(x):
@@ -211,6 +222,12 @@ def chisquared(param, x, y, erro):
     return (chisq)
 
 def standardslopeerror(tem, abund, err):
+    for h, txt in enumerate(abund):
+        if (math.isnan(txt) == True):
+            del temp[h]
+            del abund[h]
+            del err[h]
+            
     errorsq = np.square(err)
     errorC = np.diag(errorsq)
     abu = ([1] * len(tem))
@@ -239,6 +256,12 @@ def standardslopeerror(tem, abund, err):
     return sse
 
 def standardintercepterror(tem, abund, err):
+    for h, txt in enumerate(abund):
+        if (math.isnan(txt) == True):
+            del temp[h]
+            del abund[h]
+            del err[h]
+            
     errorsq = np.square(err)
     errorC = np.diag(errorsq)
     abu = ([1] * len(tem))
@@ -267,6 +290,12 @@ def standardintercepterror(tem, abund, err):
     return sie
 
 def error_star_table(tp, ab, er):
+    for h, txt in enumerate(ab):
+        if (math.isnan(txt) == True):
+            del tp[h]
+            del ab[h]
+            del er[h]
+            
     N=1000
     l=list(np.copy(tp))
     k=list(np.copy(ab))
@@ -277,7 +306,7 @@ def error_star_table(tp, ab, er):
     
     #leaving out one point from data set and calculating m, b for each instance
     while h<N:
-        w = random.randint(0, 29)
+        w = random.randint(0, (len(tp)-1))
         del l[w]
         del k[w]
         del s[w] #removing one data set from lists 
@@ -308,22 +337,29 @@ def error_star_table(tp, ab, er):
     return tab
 
 
-
-
 if __name__ == "__main__":
     mbvalues = []
-jackknifevalues = []
-x0 = [9e-5,.1]
-chivalues = []
+    starrow = []
+    x0 = [0,.1]
 
-for i, txt in enumerate(t['star_name']):
-    tabl = find_stellar_abundances(txt)
+    for i, txt in enumerate(t['star_name']):
+        tabl = find_stellar_abundances(txt)
+
+        temperature= tabl.columns[3]
+        elementab = tabl.columns[1]
+        aberrors =tabl.columns[2]
+
+    #mbvalues is an array (slope, intercept, standard deviation of slope & intercept, standard slope error, intercept error, chi squared)
+        starrow.append(find_m_b(temperature,elementab, aberrors))
+        jack = jackknifemb(np.array(temperature),np.array(elementab),np.array(aberrors))
+        standarddev = (statistics.stdev(jack[0]),statistics.stdev(jack[1]))
+        starrow.append(standarddev)
+        errors = (standardslopeerror(temperature,elementab,aberrors), standardintercepterror(temperature,elementab,aberrors))
+        starrow.append(errors)
+        starrow.append(chisquared(x0, temperature, elementab, aberrors))
     
-    temperature= tabl.columns[3]
-    elementab = tabl.columns[1]
-    aberrors =tabl.columns[2]
+        mbvalues.append(starrow)
+        starrow =[]
     
-    mbvalues.append(find_m_b(temperature,elementab, aberrors))
-    jackknifevalues.append(jackknifemb(np.array(temperature),np.array( elementab),np.array( aberrors)))
-    chivalues.append(chisquared(x0, temperature, elementab, aberrors))
-    tableoferror = (error_star_table(temperature, elementab, aberrors))
+        plt.figure()
+        stellar_abundance_plot(txt)
