@@ -388,7 +388,7 @@ def abudiff(star):
 
     prev = np.array(predicted_values)
     abu = np.array(star_abundance)
-    diff = prev - abu
+    diff = abu - prev
     
     plt.ioff()
     fig, ax = plt.subplots()
@@ -408,17 +408,76 @@ def abudiff(star):
         plot_xs = np.arange(0, 1750, .1)
         ax.plot(plot_xs, jk[0][i] * plot_xs + (jk[1][i]), color = 'lightgray', linewidth=0.1)
 
-    #error bars                                                                                                                                                                                                                                                                    
+    #error bars
+
     ax.errorbar(star_con_temp, diff, yerr= el_error, fmt='o', color='black',
                  ecolor='lightsteelblue', elinewidth=3,capsize=0)
 
-    #line of best fit m,b values                                                                                                                                                                                                                                                                                                                                                      
+    #line of best fit m,b values
+
     mb = find_m_b(star_con_temp, diff, el_error)
     plot_xs = np.arange(0, 1750, .1)
     ax.plot(plot_xs, (mb[0]) * plot_xs + (mb[1]), color='teal')
 
     fig.savefig('tcremoved'+ star + '.png')
     plt.close(fig)
+
+def residuals(star):
+    for i, txt in enumerate(t['star_name']):
+        if txt == star:
+            tbl = t[i] #inputted star's row 
+    
+    star_elements =[]
+    elnames = tbl.columns[3:64]
+    for n in elnames:
+        if len(n) < 3 :
+            star_elements.append(n)
+            star_elements #list of elements in that star
+
+    star_abundance = []
+    for n in star_elements:
+        star_abundance.append(tbl[n])
+        star_abundance #list of element abundances
+
+    star_con_temp = []
+    for n in star_elements:
+        star_con_temp.append(tc_map[n])
+        star_con_temp #condensation temperatures for stellar elements 
+
+    new=np.array(star_con_temp)
+
+    star_error_elements = []
+    for r in elnames:
+        if len(r) > 3 :
+            star_error_elements.append(r)
+
+    el_error = []
+    for k in star_error_elements:
+        el_error.append(tbl[k])
+        el_error #list of error values for elements 
+
+    for x, txt in enumerate(star_abundance):
+        if (math.isnan(txt) == True):
+            del star_elements[x]
+            del star_abundance[x]
+            del star_con_temp[x]
+            del el_error[x]
+    
+    mborig = find_m_b(star_con_temp, star_abundance, el_error)
+    m = mborig[0]
+    b = mborig[1]
+
+    predicted_values = []
+    pv = 0 
+    for u in star_con_temp: 
+        pv = (m*u) + b
+        predicted_values.append(pv)
+        pv = 0
+
+    prev = np.array(predicted_values)
+    abu = np.array(star_abundance)
+    diff = abu - prev
+    return diff
 
 if __name__ == "__main__":
     mbvalues = []
@@ -445,5 +504,5 @@ if __name__ == "__main__":
         starrow =[]
     
         plt.figure()
-        stellar_abundance_plot(txt)
-        #abudiff(txt)
+        #stellar_abundance_plot(txt)
+        abudiff(txt)
