@@ -191,10 +191,10 @@ def abund_plot_noCO(star):
     #error bars 
     for u, name in enumerate(elements): #plotting points, with C and O in different colors
         if name == 'C':
-            ax.errorbar(temp[u], abundance[u], yerr= error[u], fmt='o', color='blue',
+            ax.errorbar(temp[u], abund[u], yerr= error[u], fmt='o', color='blue',
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
         elif name == 'O' :
-            ax.errorbar(temp[u], abundance[u], yerr= error[u], fmt='o', color='blue',
+            ax.errorbar(temp[u], abund[u], yerr= error[u], fmt='o', color='blue',
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
         else:
             ax.errorbar(C_O_removed_temp, C_O_removed_abund, yerr= C_O_removed_error, fmt='o', color='black',
@@ -405,7 +405,7 @@ def abudiff(star): #plots for abundance differences
 
     #point labels
     for i, txt in enumerate(elements):
-            ax.annotate(txt, xy=(star_con_temp[i], diff[i]), xytext=(-13,-6),
+            ax.annotate(txt, xy=(temp[i], diff[i]), xytext=(-13,-6),
                 textcoords='offset points', ha='center', va='bottom')
 
     jk= jackknifemb(temp, diff, error)
@@ -425,6 +425,71 @@ def abudiff(star): #plots for abundance differences
     fig.savefig('tcremoved'+ star + '.png')
     plt.close(fig)
 
+def abudiff_noCO(star): #plots for abundance differences   
+    fig_size = plt.rcParams["figure.figsize"]
+    fig_size[0] = 15
+    fig_size[1] = 12
+    plt.rcParams["figure.figsize"] = fig_size
+    table = star_table(star)
+    temp= np.array(table.columns[3])
+    abund = np.array(table.columns[1])
+    error = np.array(table.columns[2])
+    elements = np.array(table.columns[0])
+    
+    diff = residuals(star)
+    
+    C_O_removed_error = [] #lists without C or O data -- outliers                                                                                                                                           
+    C_O_removed_temp = []
+    C_O_removed_abund = []
+    C_O_removed_diff = []
+    for h, name in enumerate(elements):
+        if name != 'C':
+            if name != 'O':
+                C_O_removed_error.append(error[h])
+                C_O_removed_temp.append(temp[h])
+                C_O_removed_abund.append(abund[h])
+                C_O_removed_diff.append(diff[h])
+                
+    plt.ioff()
+    fig, ax = plt.subplots()
+
+    #point labels                                                                                                                                                                                           
+    for n, txt in enumerate(elements):
+            ax.annotate(txt, xy=(temp[n], diff[n]), xytext=(-13,-6),
+                textcoords='offset points', ha='center', va='bottom')
+            
+    #alternate best fit lines                                                                                                                                                                               
+    jk= jackknifemb(C_O_removed_temp, C_O_removed_diff, C_O_removed_error)
+    for i, txt in enumerate (jk[0]):
+        plot_xs = np.arange(0, 1750, .1)
+        ax.plot(plot_xs, jk[0][i] * plot_xs + (jk[1][i]), color = 'lightgray', linewidth=0.1)
+        
+    #error bars                                                                                                                                                                                             
+    for u, name in enumerate(elements): #plotting points, with C and O in different colors                                                                                                                  
+        if name == 'C':
+            ax.errorbar(temp[u], diff[u], yerr= error[u], fmt='o', color='blue',
+                 ecolor='lightsteelblue', elinewidth=3, capsize=0)
+        elif name == 'O' :
+            ax.errorbar(temp[u], diff[u], yerr= error[u], fmt='o', color='blue',
+                 ecolor='lightsteelblue', elinewidth=3, capsize=0)
+        else:
+            ax.errorbar(C_O_removed_temp, C_O_removed_diff, yerr= C_O_removed_error, fmt='o', color='black',
+                 ecolor='lightsteelblue', elinewidth=3, capsize=0)
+
+    #plot labels                                                                                                                                                                                            
+    ax.set_xlabel('Tc',fontsize='xx-large', family='sans-serif')
+    ax.set_ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
+    ax.set_title('Temperature vs Element Abundance for {0}'.format(star), fontsize= 'xx-large', family='sans-serif')
+
+    
+    #line of best fit m,b values                                                                                                                                                                            
+    mb = find_m_b(C_O_removed_temp, C_O_removed_diff, C_O_removed_error)
+    plot_xs = np.arange(0, 1750, .1)
+    ax.plot(plot_xs, (mb[0]) * plot_xs + (mb[1]), color='teal')
+
+    fig.savefig(star+'noco_diff.png')
+    plt.close(fig)
+
 
 if __name__ == "__main__":
     mbvalues = []
@@ -432,7 +497,7 @@ if __name__ == "__main__":
     x0 = [0,.1]
 
     for i, txt in enumerate(t['star_name']):
-        tabl = find_stellar_abundances(txt)
+        tabl = star_table(txt)
         temperature= tabl.columns[3]
         elementab = tabl.columns[1]
         aberrors =tabl.columns[2]
@@ -451,4 +516,5 @@ if __name__ == "__main__":
     
         plt.figure()
         #stellar_abundance_plot(txt)
-        abudiff(txt)
+        abudiff_noCO(txt)
+        #abund_plot_noCO(txt)
