@@ -1,0 +1,43 @@
+def delta_elements(table):
+    t = table 
+    star_elements =[]
+    colnames = t.columns[3:64]
+    deltatemp = []
+    deltanotemp = []
+    x0 = (.01,  .05, -3) #initial guess
+    
+    for n in colnames:
+        if len(n) < 3 :
+            star_elements.append(n)
+            
+    for el, af in enumerate(star_elements):
+        print(el)
+        num = 0
+        element_error_index = []
+        for o, ind in enumerate(t.colnames):
+            for x in star_elements:
+                if ind == x:
+                    num = o + 1
+                    element_error_index.append(num)
+        eei = element_error_index[el]
+                
+        #BEFORE REMOVING TEMP TRENDS
+        delt_temp = scipy.optimize.minimize(twodnlnL, x0, args = (t['age'], t[af], t['age_err'], t.columns[eei]))
+        tvalue = delt_temp['x'][2]
+        deltatemp.append(tvalue)
+    
+        #AFTER REMOVING TEMP
+        elabundances = []
+        for l in (t['star_name']):
+            elabundances.append(residuals(l)[el])
+    
+        delt_notemp = scipy.optimize.minimize(twodnlnL, x0, args = (t['age'], elabundances, t['age_err'], 
+                                                                    t.columns[eei]))
+        value = delt_notemp['x'][2]
+        deltanotemp.append(value)
+        
+    return deltatemp , deltanotemp
+
+
+deltatemp = delta_elements(t)[0]
+deltanotemp = delta_elements(t)[1]

@@ -1,11 +1,13 @@
-≈ßfrom astropy.table import Table
+from astropy.table import Table
 import matplotlib.pyplot as plt
 import numpy as np
 import random
 import math
 import statistics
 import scipy 
+from scipy import optimize  
 from condensation_temperature import * 
+from tqdm import tqdm
 
 fig_size = plt.rcParams["figure.figsize"]
 fig_size[0] = 15
@@ -14,14 +16,22 @@ plt.rcParams["figure.figsize"] = fig_size
 
 t= Table.read('solar_twins_data.fits') #fits file as table 
 for i, words in enumerate(t['Fe']):
-    t['Fe'][i] = 0
-t
+   t['Fe'][i] = 0
+
+#t[8][5] = 0
+#t[8][6]= 10**6
+
+exclusions = ['HIP19911', 'HIP108158', 'HIP109821', 'HIP115577', 'HIP14501', 'HIP28066', 'HIP30476', 
+              'HIP33094', 'HIP65708', 'HIP73241', 'HIP74432', 'HIP64150']
+for u in exclusions: 
+    for i, txt in enumerate(t['star_name']):
+        if txt == u:
+            t.remove_row(i)
 
 def star_table(star):
     for i, txt in enumerate(t['star_name']):
         if txt == star:
             tbl = t[i] #inputted star's row
-            tbl
 
     star_elements =[]
     elnames = tbl.columns[3:64]
@@ -366,35 +376,33 @@ def error_table(tp, ab, er):
                                               'linear algebra uncertainty'))
     return tab
 
-def residuals(star):
-    table = star_table(star)
-    temp= np.array(table.columns[3])
-    abund = np.array(table.columns[1])
-    error = np.array(table.columns[2])
-    
-    mborig = find_m_b(temp, abund, error)
+def residuals(x, y, error):
+   #for val in x:
+      #if (math.isnan(val) == True):
+    mborig = find_m_b(x, y, error)
     m = mborig[0]
     b = mborig[1]
 
-    predicted_values = [] #abundance values from slope
-    pv = 0 
-    for u in temp: 
+    predicted_values = [] #y values from slope                            
+    pv = 0
+    for u in x:
         pv = (m*u) + b
         predicted_values.append(pv)
         pv = 0
 
     prev = np.array(predicted_values)
-    abu = np.array(abund)
-    diff = abu - prev #difference between slope and measured values
+    abu = np.array(y)
+    diff = abu - prev #difference between slope and measured values  
     return diff
 
 def abudiff(star): #plots for abundance differences     
     table = star_table(star)
     temp= np.array(table.columns[3])
     error = np.array(table.columns[2])
+    abund = np.array(table.columns[1])
     elements = np.array(table.columns[0])
     
-    diff = residuals(star)
+    diff = residuals(temp, abund, error)
     plt.ioff()
     fig, ax = plt.subplots()
 
@@ -436,7 +444,7 @@ def abudiff_noCO(star): #plots for abundance differences
     error = np.array(table.columns[2])
     elements = np.array(table.columns[0])
     
-    diff = residuals(star)
+    diff = residuals(temp, abund, error)
     
     C_O_removed_error = [] #lists without C or O data -- outliers                                                                                                                                           
     C_O_removed_temp = []
@@ -453,7 +461,7 @@ def abudiff_noCO(star): #plots for abundance differences
     plt.ioff()
     fig, ax = plt.subplots()
 
-    #point labels                                                                                                                                                                                           
+    #point labels
     for n, txt in enumerate(elements):
             ax.annotate(txt, xy=(temp[n], diff[n]), xytext=(-13,-6),
                 textcoords='offset points', ha='center', va='bottom')
@@ -491,6 +499,128 @@ def abudiff_noCO(star): #plots for abundance differences
     plt.close(fig)
 
 
+def lnL(param, x, y, error): # Hogg: lnL = -1/2 sum [(y- (mx+b))^2/(err^2 + d^2)] -1/2 sum ln(err^2 + d^2)
+    x = np.array(x)
+    y = np.array(y)
+    error = np.array(error)
+    (m,b,d) = param 
+
+    sum1 = 0
+    for j, val in enumerate(x):
+        mxb = m*val + b
+        value = ((y[j] - mxb)**2)/((error[j]**2) + (d**2))
+        sum1 = sum1 + value 
+    sum1 = sum1 *(-1/2)
+    
+    num = 0
+    for e, ooh in enumerate(error):
+        val2 = np.log((ooh**2) + (d**2))
+        num = num + val2 
+    num = num * (-1/2)
+    
+    lnL = sum1 + num
+    return lnL
+
+def nlnL(param, x, y, error):
+    nlnL= lnL(param, x,y, error)
+    return - nlnL
+
+#2D uncertainties: lnL = K -  sum [delta^2 / 2* sum^2]  
+def twodnlnL(param, x, y, errx, erry):
+    K = 0
+    delt = delta(param, x, y)
+    (m,b,d) = param
+
+    #Σ^2 = vˆT Si v  
+    theta = np.arctan(m)
+    v = np.array([- np.sin(theta), np.cos(theta)]) # v = [− sin θ,  cos θ]
+    
+    var = np.zeros_like(erry)
+    for i, (dy, dx) in enumerate(zip(erry, errx)):
+        cov = np.eye(2)
+        cov[0,0] = dx**2
+        cov[1,1] = dy**2 
+        var[i] = np.dot(v.T, np.dot(cov, v))
+        
+    sigmasq = var + np.exp(2.*d)
+    return 0.5 * np.sum(delt**2/sigmasq + np.log(sigmasq))
+
+def delta(param, x, y): # Hogg 2010 eqn 30 : ∆i = (vˆT Zi) − b cos θ   
+    (m,b,d) = param
+    theta = np.arctan(m)
+    v = np.array([- np.sin(theta), np.cos(theta)]) # v = [− sin θ  cos θ]   
+
+    disp = np.zeros_like(y)
+    for i, (ys, xs) in enumerate(zip(y, x)):
+        z0 = np.asarray([0.0, b])
+        zi = np.asarray([xs, ys])
+        disp[i] = np.dot( v, zi - z0 )
+    return disp
+
+def dm(param, x, y, error):
+    x = np.array(x)
+    y = np.array(y)
+    error = np.array(error)
+    (m,b,d) = param 
+
+    sum1 = 0
+    for c, valu in enumerate(x): # sum (1/(d^2 + err^2) * 2(y-(mx+b)) * -x
+        mxb = m*valu + b
+        value = (1/((error[c]**2) + (d**2)) * 2 *(y[c] - mxb) * -valu)
+        sum1 = sum1 + value 
+    sum1 = sum1 * (1/2)
+    
+    sum2 = 0
+    for e, ooh in enumerate(error): # 1/2 * sum (ln(err^2 + d^2))
+        val2 = np.log((ooh**2) + (d**2))
+        sum2 = sum2 + val2 
+    sum2 = sum2 * (1/2)
+    
+    return sum1 - sum2
+
+def db(param, x, y, error):
+    x = np.array(x)
+    y = np.array(y)
+    error = np.array(error)
+    (m,b,d) = param 
+
+    sum1 = 0
+    for c, valu in enumerate(x): # sum (1/(d^2 + err^2) * 2(y-(mx+b))
+        mxb = m*valu + b
+        value = (1/((error[c]**2) + (d**2)) * 2 *(y[c] - mxb))
+        sum1 = sum1 + value 
+    sum1 = sum1 * (1/2)
+    
+    sum2 = 0
+    for e, ooh in enumerate(error): # 1/2 * sum (ln(err^2 + d^2))
+        val2 = np.log((ooh**2) + (d**2))
+        sum2 = sum2 + val2 
+    sum2 = sum2 * (1/2)
+    
+    return sum1 - sum2
+
+def dd(param, x, y, error):
+    x = np.array(x)
+    y = np.array(y)
+    error = np.array(error)
+    (m,b,d) = param 
+
+    sum1 = 0
+    for c, valu in enumerate(x): # sum (2d/(d^2 + err^2)^2 * (y-(mx+b))^2 
+        mxb = m*valu + b
+        value = (((2*d)/(((error[c]**2) + (d**2))**2)) * (y[c] - mxb)**2)
+        sum1 = sum1 + value 
+    sum1 = sum1 * (1/2)
+    
+    sum2 = 0
+    for e, ooh in enumerate(error): # 1/2 * sum (1/(err^2 + d^2)  * 2d)
+        val2 = (2*d)/((ooh**2) + (d**2))
+        sum2 = sum2 + val2 
+    sum2 = sum2 * (1/2)
+    
+    return sum1 - sum2
+
+
 if __name__ == "__main__":
     mbvalues = []
     starrow = []
@@ -516,5 +646,5 @@ if __name__ == "__main__":
     
         plt.figure()
         #stellar_abundance_plot(txt)
-        abudiff_noCO(txt)
-        #abund_plot_noCO(txt)
+        #abudiff_noCO(txt)
+        abund_plot_noCO(txt)
