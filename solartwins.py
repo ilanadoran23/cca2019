@@ -15,20 +15,19 @@ fig_size[1] = 12
 plt.rcParams["figure.figsize"] = fig_size
 
 t= Table.read('solar_twins_data.fits') #fits file as table 
-for i, words in enumerate(t['Fe']):
-   t['Fe'][i] = 0
 
-for m, o in enumerate(t['O']):
-   if m == 5: 
-      t['O'][m] = 0
-      t['O'][m+1]= 10**6
-
-exclusions = ['HIP19911', 'HIP108158', 'HIP109821', 'HIP115577', 'HIP14501', 'HIP28066', 'HIP30476', 
+exclusions = ['HIP19911', 'HIP108158', 'HIP109821', 'HIP115577', 'HIP14501', 'HIP28066', 'HIP30476',
               'HIP33094', 'HIP65708', 'HIP73241', 'HIP74432', 'HIP64150']
-for u in exclusions: 
+for u in exclusions:
     for i, txt in enumerate(t['star_name']):
         if txt == u:
             t.remove_row(i)
+
+for i, words in enumerate(t['Fe']):
+   t['Fe'][i] = 0
+
+t['O'][8] = 0
+t['O_err'][8] = 10**6
 
 def star_table(star):
     for i, txt in enumerate(t['star_name']):
@@ -131,7 +130,6 @@ def jackknifemb(_tp,_ab,_er):
     return jackm, jackb
 
 def stellar_abundance_plot(star): 
-    
     table = star_table(star)
     temp= np.array(table.columns[3])
     abund = np.array(table.columns[1])
@@ -379,8 +377,6 @@ def error_table(tp, ab, er):
     return tab
 
 def residuals(x, y, error):
-   #for val in x:
-      #if (math.isnan(val) == True):
     mborig = find_m_b(x, y, error)
     m = mborig[0]
     b = mborig[1]
@@ -463,11 +459,18 @@ def abudiff_noCO(star): #plots for abundance differences
     plt.ioff()
     fig, ax = plt.subplots()
 
-    #point labels
+     #point labels
     for n, txt in enumerate(elements):
+        if txt == 'C':
+            ax.annotate(txt, xy=(temp[n], abund[n]), xytext=(-13,-6),
+                            textcoords='offset points', ha='center', va='bottom')
+        elif txt == 'O' :
+            ax.annotate(txt, xy=(temp[n], abund[n]), xytext=(-13,-6),
+                            textcoords='offset points', ha='center', va='bottom')
+        else:
             ax.annotate(txt, xy=(temp[n], diff[n]), xytext=(-13,-6),
-                textcoords='offset points', ha='center', va='bottom')
-            
+                            textcoords='offset points', ha='center', va='bottom')
+
     #alternate best fit lines                                                                                                                                                                               
     jk= jackknifemb(C_O_removed_temp, C_O_removed_diff, C_O_removed_error)
     for i, txt in enumerate (jk[0]):
@@ -477,10 +480,10 @@ def abudiff_noCO(star): #plots for abundance differences
     #error bars                                                                                                                                                                                             
     for u, name in enumerate(elements): #plotting points, with C and O in different colors                                                                                                                  
         if name == 'C':
-            ax.errorbar(temp[u], diff[u], yerr= error[u], fmt='o', color='blue',
+            ax.errorbar(temp[u], abund[u], yerr= error[u], fmt='o', color='blue',
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
         elif name == 'O' :
-            ax.errorbar(temp[u], diff[u], yerr= error[u], fmt='o', color='blue',
+            ax.errorbar(temp[u], abund[u], yerr= error[u], fmt='o', color='blue',
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
         else:
             ax.errorbar(C_O_removed_temp, C_O_removed_diff, yerr= C_O_removed_error, fmt='o', color='black',
@@ -622,11 +625,167 @@ def dd(param, x, y, error):
     
     return sum1 - sum2
 
+def delta_minimized(table, element):
+    x0 = (1, 0, -1)
+    deltatemp = []
+    deltanotemp = []
+    
+    ages = table['age']
+    age_error = table['age_err']
+    abundance_temp = table[element]
+    abundance_error = table[element + '_err']
+    abundance_notemp = residuals(ages, abundance_temp, abundance_error)
+    
+    #BEFORE REMOVING TEMP TRENDS
+    delt_temp = scipy.optimize.minimize(twodnlnL, x0, args = (ages, abundance_temp, age_error, abundance_error))
+    tvalue = delt_temp['x'][2]
+    deltatemp.append(tvalue)
+
+    #AFTER REMOVING TEMP
+    delt_notemp = scipy.optimize.minimize(twodnlnL, x0, args = (ages, abundance_notemp, age_error, abundance_error))
+    value = delt_notemp['x'][2]
+    deltanotemp.append(value)
+        
+    return deltatemp , deltanotemp
+
+def jackknife_delta(x,y,erx, ery):
+    N=100
+    l=list(np.copy(x))
+    k=list(np.copy(y))
+    s=list(np.copy(erx))
+    t=list(np.copy(ery))
+    jacktemp= []
+    jacknotemp= [] 
+    h=0
+    
+    #leaving out one point from data set and calculating delta for each instance
+    while h<N:
+        w = random.randint(0, (len(x)-1))
+        del l[w]
+        del k[w]
+        del s[w] 
+        del t[w] #removing one data set from lists 
+    
+        #BEFORE REMOVING TEMP TRENDS
+        x0 = (1, 0, -1)
+        delt_temp = scipy.optimize.minimize(twodnlnL, x0, args = (l,k,s,t))
+        tvalue = delt_temp['x'][2]
+        jacktemp.append(tvalue)
+        
+        #AFTER REMOVING TEMP
+        abundance_notemp = residuals(l, k, t)
+        delt_notemp = scipy.optimize.minimize(twodnlnL, x0, args = (l, abundance_notemp, s, t))
+        value = delt_notemp['x'][2]
+        jacknotemp.append(value)
+            
+        l=list(np.copy(x)) #adding value back in for next round 
+        k=list(np.copy(y)) 
+        s=list(np.copy(erx))
+        t=list(np.copy(ery))
+        h=h+1 
+        
+    return jacktemp, jacknotemp
+
+def age_abund_plot(table):
+    fig_size = plt.rcParams["figure.figsize"]
+    fig_size[0] = 15
+    fig_size[1] = 12
+    plt.rcParams["figure.figsize"] = fig_size
+
+    star_elements = []
+    for n in t.colnames:
+        if len(n) < 3 :
+            star_elements.append(n) #list of elements in table
+    elements = np.array(star_elements)
+    deltemp=[]
+
+    for y, ele in tqdm(enumerate(elements)):
+        deltemp.append(delta_minimized(t, ele)[0])
+    
+        x0 = (.01, .03, .07) #initial guess
+        restemp = scipy.optimize.minimize(twodnlnL, x0, args = (t['age'], t[ele], t['age_err'], t[ele + '_err']))
+    
+        plt.ioff()
+        fig, ax = plt.subplots()
+    
+        ax.scatter(t['age'], t[ele], c='rebeccapurple') 
+        ax.set_xlabel('Age',fontsize='xx-large')
+        ax.set_ylabel(ele + '/Fe', fontsize='xx-large')
+        ax.set_title(ele + ' Abundance vs. Stellar Age', fontsize='xx-large')
+
+        #line of best fit
+        mb = find_m_b(t['age'], t[ele], t[ele + '_err'])
+        for i, txt in enumerate (t[ele]):
+            plot_xs = np.arange(0, 9, .01)
+            ax.plot(plot_xs, mb[0] * plot_xs + (mb[1]), color = 'olivedrab', linewidth=1)
+    
+       #point labels
+        #for i, txt in enumerate(t['star_name']): 
+                #ax.annotate(txt, xy=(t['age'][i], t[ele][i]), xytext = (-5,5), fontsize='small', 
+                    #textcoords='offset points', ha='center', va='bottom')
+            
+        mbtemp= restemp['x']
+        plot_xs = np.arange(0, 9, .1)
+        ax.plot(plot_xs, mbtemp[0] * plot_xs + (mbtemp[1]), color = 'black', linewidth=1)
+        #ax.text(2,.15, deltemp[y] ,horizontalalignment='right', fontsize=12)
+    
+        fig.savefig(ele +'_age.png')
+        plt.close(fig)
+
+def age_abund_plot_no_temp(table):
+    fig_size = plt.rcParams["figure.figsize"]
+    fig_size[0] = 15
+    fig_size[1] = 12
+    plt.rcParams["figure.figsize"] = fig_size
+
+    star_elements = []
+    for n in t.colnames:
+        if len(n) < 3 :
+            star_elements.append(n) #list of elements in table
+    elements = np.array(star_elements)
+    delnotemp=[]
+
+    for d, nam in tqdm(enumerate(elements)):
+        delnotemp.append(delta_minimized(t, nam)[1])
+        abundance_notemp = residuals(t['age'], t[nam], t[nam + '_err'])
+
+        x0 = (.01, .03, .07) #initial guess
+        resnotemp = scipy.optimize.minimize(twodnlnL, x0, args = (t['age'], abundance_notemp, t['age_err'], t[nam + '_err']))
+    
+        plt.ioff()
+        fig, ax = plt.subplots()
+    
+        ax.scatter(t['age'], abundance_notemp, c='forestgreen') 
+        ax.set_xlabel('Age',fontsize='xx-large')
+        ax.set_ylabel(nam + '/Fe', fontsize='xx-large')
+        ax.set_title(nam + ' Abundance vs. Stellar Age', fontsize='xx-large')
+
+        #line of best fit
+        mb = find_m_b(t['age'], abundance_notemp, t[nam + '_err'])
+        for i, txt in enumerate (t[nam]):
+            plot_xs = np.arange(0, 9, .01)
+            ax.plot(plot_xs, mb[0] * plot_xs + (mb[1]), color = 'palevioletred', linewidth=1)
+    
+       #point labels
+        #for i, txt in enumerate(t['star_name']): 
+                #ax.annotate(txt, xy=(t['age'][i], abundance_notemp[i]), xytext = (-5,5), fontsize='small', 
+                    #textcoords='offset points', ha='center', va='bottom')
+            
+        mbtemp= resnotemp['x']
+        plot_xs = np.arange(0, 9, .1)
+        ax.plot(plot_xs, mbtemp[0] * plot_xs + (mbtemp[1]), color = 'black', linewidth=1)
+        #ax.text(2,.15, deltemp[y] ,horizontalalignment='right', fontsize=12)
+    
+        fig.savefig(nam +'_age_no_temp.png')
+        plt.close(fig)
+
 
 if __name__ == "__main__":
     mbvalues = []
     starrow = []
     x0 = [0,.1]
+    age_abund_plot(t)                                                                                                                                                                                  
+    age_abund_plot_no_temp(t) 
 
     for i, txt in enumerate(t['star_name']):
         tabl = star_table(txt)
@@ -647,6 +806,7 @@ if __name__ == "__main__":
         starrow =[]
     
         plt.figure()
-        #stellar_abundance_plot(txt)
+        
         #abudiff_noCO(txt)
         abund_plot_noCO(txt)
+
