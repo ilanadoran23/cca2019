@@ -211,9 +211,9 @@ def abund_plot_noCO(star):
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
     
     #plot labels
-    ax.set_xlabel('Tc',fontsize='xx-large', family='sans-serif')
-    ax.set_ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
-    ax.set_title('Temperature vs Element Abundance for {0}'.format(star), fontsize= 'xx-large', family='sans-serif')
+    ax.set_xlabel('Tc',fontsize= 30, family='sans-serif')
+    ax.set_ylabel('Element Abundance', fontsize=30, family='sans-serif')
+    ax.set_title('Temperature vs Element Abundance for {0}'.format(star), fontsize=30, family='sans-serif')
     
     #line of best fit m,b values
     mb = find_m_b(C_O_removed_temp, C_O_removed_abund, C_O_removed_error)    
@@ -223,35 +223,32 @@ def abund_plot_noCO(star):
     fig.savefig(star+'noco.png')
     plt.close(fig)
 
-#chi squared, Hogg 2010 eq 7 :  [Y - AX]^T C^-1 [Y - AX]
-def chisquared(param, x, y, erro): 
-    for h, txt in enumerate(y): #removing nan values
+#chi squared, Hogg 2010 eq 7 :  [Y - AX]^T C^-1 [Y - AX]                                                                                                                                                   
+def chisquared(param, x, y, erro):
+    for h, txt in enumerate(y): #removing nan values                                                                                                                                                      
         if (math.isnan(txt) == True):
             del x[h]
             del y[h]
             del erro[h]
-    
-    #A
+
+    (m,b) = param #for optimization - m and b    
+    X = (m,b)
+
+    #A                                                                                                                                                                                                   
     ab = ([1] * len(x))
     Amat = []
     for z, txt in enumerate(x):
         Amat.append(x[z])
-        Amat.append(ab[z])  
-    A= np.array(Amat).reshape((len(x), 2)) 
+        Amat.append(ab[z])
+    A= np.array(Amat).reshape((len(x), 2))
 
     #C
     errorsq = np.square(erro)
     C = np.diag(errorsq)
     invsC = np.linalg.inv(C)
 
-    #plugging in 
+    #plugging in                                                                                                                                                                                          
     AT= np.transpose(A)
-    part1 = np.dot(AT, np.dot(invsC, A))
-    invprt1= np.linalg.inv(part1)
-    part2 = np.dot(AT, np.dot(invsC, y)).T
-    X = np.dot(invprt1, part2)
-    [X[0], X[1]] = param #for optimization - m and b 
-    
     AX = np.dot(A,X)
     yax = (y - AX)
     yaxT = np.transpose(yax)
@@ -490,9 +487,9 @@ def abudiff_noCO(star): #plots for abundance differences
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
 
     #plot labels                                                                                                                                                                                            
-    ax.set_xlabel('Tc',fontsize='xx-large', family='sans-serif')
-    ax.set_ylabel('Element Abundance', fontsize='xx-large', family='sans-serif')
-    ax.set_title('Temperature vs Element Abundance for {0}'.format(star), fontsize= 'xx-large', family='sans-serif')
+    ax.set_xlabel('Tc',fontsize= 30, family='sans-serif')
+    ax.set_ylabel('Element Abundance', fontsize=30, family='sans-serif')
+    ax.set_title('Temperature vs Element Abundance for {0}'.format(star), fontsize= 30, family='sans-serif')
 
     
     #line of best fit m,b values                                                                                                                                                                            
@@ -779,6 +776,17 @@ def age_abund_plot_no_temp(table):
         fig.savefig(nam +'_age_no_temp.png')
         plt.close(fig)
 
+def percent_diff(val1, val2):
+    return np.absolute(((val1-val2)/((val1+ val2)/2)) *100)
+
+def stdev(x):
+    mean = np.mean(x)
+    fun = 0
+    for c in x: 
+        j = (c-mean)**2
+        fun = fun + j 
+    s = np.sqrt(fun/(len(x)))
+    return s
 
 if __name__ == "__main__":
     mbvalues = []

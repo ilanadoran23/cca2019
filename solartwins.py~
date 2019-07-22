@@ -130,7 +130,6 @@ def jackknifemb(_tp,_ab,_er):
     return jackm, jackb
 
 def stellar_abundance_plot(star): 
-    
     table = star_table(star)
     temp= np.array(table.columns[3])
     abund = np.array(table.columns[1])
@@ -224,35 +223,32 @@ def abund_plot_noCO(star):
     fig.savefig(star+'noco.png')
     plt.close(fig)
 
-#chi squared, Hogg 2010 eq 7 :  [Y - AX]^T C^-1 [Y - AX]
-def chisquared(param, x, y, erro): 
-    for h, txt in enumerate(y): #removing nan values
+#chi squared, Hogg 2010 eq 7 :  [Y - AX]^T C^-1 [Y - AX]                                                                                                                                                   
+def chisquared(param, x, y, erro):
+    for h, txt in enumerate(y): #removing nan values                                                                                                                                                      
         if (math.isnan(txt) == True):
             del x[h]
             del y[h]
             del erro[h]
-    
-    #A
+
+    (m,b) = param #for optimization - m and b    
+    X = (m,b)
+
+    #A                                                                                                                                                                                                   
     ab = ([1] * len(x))
     Amat = []
     for z, txt in enumerate(x):
         Amat.append(x[z])
-        Amat.append(ab[z])  
-    A= np.array(Amat).reshape((len(x), 2)) 
+        Amat.append(ab[z])
+    A= np.array(Amat).reshape((len(x), 2))
 
     #C
     errorsq = np.square(erro)
     C = np.diag(errorsq)
     invsC = np.linalg.inv(C)
 
-    #plugging in 
+    #plugging in                                                                                                                                                                                          
     AT= np.transpose(A)
-    part1 = np.dot(AT, np.dot(invsC, A))
-    invprt1= np.linalg.inv(part1)
-    part2 = np.dot(AT, np.dot(invsC, y)).T
-    X = np.dot(invprt1, part2)
-    [X[0], X[1]] = param #for optimization - m and b 
-    
     AX = np.dot(A,X)
     yax = (y - AX)
     yaxT = np.transpose(yax)
@@ -378,7 +374,6 @@ def error_table(tp, ab, er):
     return tab
 
 def residuals(x, y, error):
-#leave out carbon and oxygen --- keep the same abundances 
     mborig = find_m_b(x, y, error)
     m = mborig[0]
     b = mborig[1]
@@ -461,11 +456,18 @@ def abudiff_noCO(star): #plots for abundance differences
     plt.ioff()
     fig, ax = plt.subplots()
 
-    #point labels
+     #point labels
     for n, txt in enumerate(elements):
+        if txt == 'C':
+            ax.annotate(txt, xy=(temp[n], abund[n]), xytext=(-13,-6),
+                            textcoords='offset points', ha='center', va='bottom')
+        elif txt == 'O' :
+            ax.annotate(txt, xy=(temp[n], abund[n]), xytext=(-13,-6),
+                            textcoords='offset points', ha='center', va='bottom')
+        else:
             ax.annotate(txt, xy=(temp[n], diff[n]), xytext=(-13,-6),
-                textcoords='offset points', ha='center', va='bottom')
-            
+                            textcoords='offset points', ha='center', va='bottom')
+
     #alternate best fit lines                                                                                                                                                                               
     jk= jackknifemb(C_O_removed_temp, C_O_removed_diff, C_O_removed_error)
     for i, txt in enumerate (jk[0]):
@@ -475,10 +477,10 @@ def abudiff_noCO(star): #plots for abundance differences
     #error bars                                                                                                                                                                                             
     for u, name in enumerate(elements): #plotting points, with C and O in different colors                                                                                                                  
         if name == 'C':
-            ax.errorbar(temp[u], diff[u], yerr= error[u], fmt='o', color='blue',
+            ax.errorbar(temp[u], abund[u], yerr= error[u], fmt='o', color='blue',
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
         elif name == 'O' :
-            ax.errorbar(temp[u], diff[u], yerr= error[u], fmt='o', color='blue',
+            ax.errorbar(temp[u], abund[u], yerr= error[u], fmt='o', color='blue',
                  ecolor='lightsteelblue', elinewidth=3, capsize=0)
         else:
             ax.errorbar(C_O_removed_temp, C_O_removed_diff, yerr= C_O_removed_error, fmt='o', color='black',
@@ -774,11 +776,15 @@ def age_abund_plot_no_temp(table):
         fig.savefig(nam +'_age_no_temp.png')
         plt.close(fig)
 
+def percent_diff(val1, val2):
+    return np.absolute(((val1-val2)/((val1+ val2)/2)) *100)
 
 if __name__ == "__main__":
     mbvalues = []
     starrow = []
     x0 = [0,.1]
+    age_abund_plot(t)                                                                                                                                                                                  
+    age_abund_plot_no_temp(t) 
 
     for i, txt in enumerate(t['star_name']):
         tabl = star_table(txt)
@@ -799,6 +805,7 @@ if __name__ == "__main__":
         starrow =[]
     
         plt.figure()
-        #stellar_abundance_plot(txt)
+        
         #abudiff_noCO(txt)
         abund_plot_noCO(txt)
+
