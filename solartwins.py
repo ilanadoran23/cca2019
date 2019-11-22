@@ -70,15 +70,18 @@ def star_table(star):
     for k in star_error_elements:
         el_error.append(tbl[k])
         el_error #list of error values for elements
-        
+
+    atmnum =[26,11,12,13,14,16,20,23,25,27,28,29,30,38,39,40,56,57,58,59,60,62,63,64,66,22,21,24]
+
     for x, txt in enumerate(star_abundance):
         if (math.isnan(txt) == True):
             del star_elements[x]
             del star_abundance[x]
             del star_con_temp[x]
             del el_error[x]
-    
-    star_table = Table([star_elements, star_abundance, el_error, star_con_temp], names=('Element', 'Abundance', 'Abundance Error','Condensation Temp')) #table of temperature vs abundance for elements 
+            del atmnum[x]
+
+    star_table = Table([star_elements, star_abundance, el_error, star_con_temp, atmnum], names=('Element', 'Abundance', 'Abundance Error','Condensation Temp', 'Atomic Number')) #table of temperature vs abundance for elements 
     return star_table
 
 #function for returning the best slope and intercept using linear algebra : Hogg eq 5 
